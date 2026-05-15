@@ -1,0 +1,177 @@
+[
+  {
+    "id": "2031:9",
+    "name": "iPad端UI-首页",
+    "pageName": "iPad端UI",
+    "width": 1668,
+    "height": 2388
+  },
+  {
+    "id": "2031:15",
+    "name": "iPad端UI-选择页",
+    "pageName": "iPad端UI",
+    "width": 1668,
+    "height": 2388
+  },
+  {
+    "id": "2040:123",
+    "name": "iPad端UI-曾侯乙尊盘 确认页",
+    "pageName": "iPad端UI",
+    "width": 1668,
+    "height": 2388
+  },
+  {
+    "id": "2041:283",
+    "name": "iPad端UI-虎座鸟架鼓 确认页",
+    "pageName": "iPad端UI",
+    "width": 1668,
+    "height": 2388
+  },
+  {
+    "id": "2041:342",
+    "name": "iPad端UI-曾侯乙编钟 确认页",
+    "pageName": "iPad端UI",
+    "width": 1668,
+    "height": 2388
+  },
+  {
+    "id": "2042:404",
+    "name": "iPad端UI-元青花四爱图梅瓶 确认页",
+    "pageName": "iPad端UI",
+    "width": 1668,
+    "height": 2388
+  },
+  {
+    "id": "2047:717",
+    "name": "iPad端UI-结束页",
+    "pageName": "iPad端UI",
+    "width": 1668,
+    "height": 2388
+  },
+  {
+    "id": "2053:2145",
+    "name": "iPad端UI-打印照片页",
+    "pageName": "iPad端UI",
+    "width": 1668,
+    "height": 2388
+  },
+  {
+    "id": "4001:2",
+    "name": "iPad端UI-倒数页-5",
+    "pageName": "iPad端UI",
+    "width": 1668,
+    "height": 2388
+  },
+  {
+    "id": "2075:394",
+    "name": "iPad端UI-待机页",
+    "pageName": "iPad端UI",
+    "width": 4432.02294921875,
+    "height": 7871.28125
+  },
+  {
+    "id": "2078:1049",
+    "name": "iPad端UI-照片已发送提示页",
+    "pageName": "iPad端UI",
+    "width": 4432.02294921875,
+    "height": 7871.28125
+  },
+  {
+    "id": "2075:463",
+    "name": "iPad端UI-AR 试穿页",
+    "pageName": "iPad端UI",
+    "width": 4432.02294921875,
+    "height": 7871.28125
+  },
+  {
+    "id": "2075:464",
+    "name": "iPad端UI-拍照倒计时页 5",
+    "pageName": "iPad端UI",
+    "width": 4432.02294921875,
+    "height": 7871.28125
+  },
+  {
+    "id": "2075:470",
+    "name": "iPad端UI-拍照倒计时页 4",
+    "pageName": "iPad端UI",
+    "width": 4432.02294921875,
+    "height": 7871.28125
+  },
+  {
+    "id": "2075:476",
+    "name": "iPad端UI-拍照倒计时页 3",
+    "pageName": "iPad端UI",
+    "width": 4432.02294921875,
+    "height": 7871.28125
+  },
+  {
+    "id": "2075:482",
+    "name": "iPad端UI-拍照倒计时页 2",
+    "pageName": "iPad端UI",
+    "width": 4432.02294921875,
+    "height": 7871.28125
+  },
+  {
+    "id": "2075:488",
+    "name": "iPad端UI-拍照倒计时页 1",
+    "pageName": "iPad端UI",
+    "width": 4432.02294921875,
+    "height": 7871.28125
+  },
+  {
+    "id": "2061:176",
+    "name": "大屏端UI-待机页",
+    "pageName": "大屏端UI",
+    "width": 4067,
+    "height": 7223
+  },
+  {
+    "id": "2075:142",
+    "name": "大屏端UI-AR 试穿页",
+    "pageName": "大屏端UI",
+    "width": 4067,
+    "height": 7223
+  },
+  {
+    "id": "2077:583",
+    "name": "大屏端UI-照片已发送提示页",
+    "pageName": "大屏端UI",
+    "width": 4067,
+    "height": 7223
+  },
+  {
+    "id": "2075:215",
+    "name": "大屏端UI-拍照倒计时页 5",
+    "pageName": "大屏端UI",
+    "width": 4067,
+    "height": 7223
+  },
+  {
+    "id": "2075:216",
+    "name": "大屏端UI-拍照倒计时页 4",
+    "pageName": "大屏端UI",
+    "width": 4067,
+    "height": 7223
+  },
+  {
+    "id": "2075:217",
+    "name": "大屏端UI-拍照倒计时页 3",
+    "pageName": "大屏端UI",
+    "width": 4067,
+    "height": 7223
+  },
+  {
+    "id": "2075:218",
+    "name": "大屏端UI-拍照倒计时页 2",
+    "pageName": "大屏端UI",
+    "width": 4067,
+    "height": 7223
+  },
+  {
+    "id": "2075:219",
+    "name": "大屏端UI-拍照倒计时页 1",
+    "pageName": "大屏端UI",
+    "width": 4067,
+    "height": 7223
+  }
+]
