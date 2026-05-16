@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react'
 import type { CSSProperties } from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import './App.css'
 
@@ -124,6 +124,33 @@ const roles: Role[] = [
   },
 ]
 
+const idleArtifactItems = [
+  {
+    name: '曾侯乙尊盘',
+    romanized: 'ZENG HOU YI ZUN PAN',
+    period: '战国时期青铜器',
+    description: '礼乐文化的巅峰之作',
+  },
+  {
+    name: '曾侯乙编钟',
+    romanized: 'ZENG HOU YI BIAN ZHONG',
+    period: '战国时期打击乐器',
+    description: '千年回响的礼乐奇迹',
+  },
+  {
+    name: '虎座鸟架鼓',
+    romanized: 'HU ZUO NIAO JIA GU',
+    period: '战国时期漆木器',
+    description: '楚文化中的神话乐器',
+  },
+  {
+    name: '元青花四爱图梅瓶',
+    romanized: 'YUAN QING HUA SI AI TU MEI PING',
+    period: '元代青花瓷器',
+    description: '青花瓷中的经典之作',
+  },
+]
+
 const controlDesign = {
   width: 1668,
   height: 2388,
@@ -147,12 +174,13 @@ const defaultState: RoomState = {
 function useRoomSocket(clientType: 'screen' | 'control') {
   const [connected, setConnected] = useState(false)
   const [state, setState] = useState<RoomState>(defaultState)
-  const [socket, setSocket] = useState<Socket | null>(null)
+  const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
     const nextSocket = io(import.meta.env.VITE_SERVER_URL ?? 'http://localhost:4000', {
       transports: ['websocket'],
     })
+    socketRef.current = nextSocket
 
     nextSocket.on('connect', () => {
       setConnected(true)
@@ -161,14 +189,18 @@ function useRoomSocket(clientType: 'screen' | 'control') {
 
     nextSocket.on('disconnect', () => setConnected(false))
     nextSocket.on('room:state', (nextState: RoomState) => setState(nextState))
-    setSocket(nextSocket)
 
     return () => {
+      socketRef.current = null
       nextSocket.close()
     }
   }, [clientType])
 
-  return { connected, state, socket }
+  const emit = useCallback((event: string, payload?: unknown) => {
+    socketRef.current?.emit(event, payload)
+  }, [])
+
+  return { connected, emit, state }
 }
 
 function getSelectedRole(state: RoomState) {
@@ -217,13 +249,17 @@ function App() {
 function ScreenApp() {
   const { state } = useRoomSocket('screen')
   const selectedRole = getSelectedRole(state)
-  const showStage = state.stage === 'preview' || state.stage === 'countdown'
+  const showStage = state.stage === 'countdown'
+  const showBackground = state.stage !== 'preview'
   const screenBackground = state.stage === 'captured' ? figmaImages.ending : figmaImages.hero
 
   return (
     <main className="screen-shell">
       <section className={`screen-frame screen-frame-${state.stage}`}>
-        <img className="screen-bg" src={screenBackground} alt="" />
+        {showBackground && <img className="screen-bg" src={screenBackground} alt="" />}
+
+        {state.stage === 'idle' && <ScreenIdleOverlay />}
+        {state.stage === 'preview' && <ScreenArStart />}
 
         {showStage && (
           <div className="screen-stage">
@@ -266,8 +302,47 @@ function ScreenApp() {
   )
 }
 
+function ScreenArStart() {
+  return <div className="screen-ar-start">A R 试 穿 页</div>
+}
+
+function ScreenIdleOverlay() {
+  return (
+    <div className="screen-idle-layer">
+      <img className="screen-idle-logo" src={figmaImages.logo} alt="" />
+      <div className="screen-idle-culture screen-idle-culture-left">荆• 楚• 文• 化</div>
+      <div className="screen-idle-culture screen-idle-culture-right">数• 字• 重• 生</div>
+
+      <div className="screen-idle-prompt">
+        <span className="screen-idle-prompt-line" />
+        <span className="screen-idle-prompt-diamond" />
+        <span className="screen-idle-prompt-text">请在操作台点击开始 CLICK START ON THE CONSOLE</span>
+        <span className="screen-idle-prompt-diamond" />
+        <span className="screen-idle-prompt-line" />
+      </div>
+
+      <div className="screen-idle-artifacts">
+        {idleArtifactItems.map((item) => (
+          <article className="screen-idle-artifact" key={item.name}>
+            <h2>{item.name}</h2>
+            <p className="screen-idle-artifact-en">{item.romanized}</p>
+            <div className="screen-idle-artifact-mark" />
+            <p>{item.period}</p>
+            <p>{item.description}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="screen-idle-footer">
+        <span>湖北省博物馆AR穿戴体验</span>
+        <i />
+      </div>
+    </div>
+  )
+}
+
 function ControlApp() {
-  const { state, socket } = useRoomSocket('control')
+  const { emit, state } = useRoomSocket('control')
   const selectedRole = getSelectedRole(state)
   const [controlPage, setControlPage] = useState<ControlPage>(getInitialControlPage)
   const [detailRoleId, setDetailRoleId] = useState(getInitialDetailRoleId)
@@ -276,7 +351,7 @@ function ControlApp() {
 
   const selectRole = (roleId: string) => {
     setDetailRoleId(roleId)
-    socket?.emit('control:select-role', { roomId: 'main', roleId })
+    emit('control:select-role', { roomId: 'main', roleId })
     setControlPage('detail')
   }
 
@@ -285,7 +360,7 @@ function ControlApp() {
     const currentIndex = order.indexOf(detailRole.id)
     const nextRoleId = order[(currentIndex + offset + order.length) % order.length]
     setDetailRoleId(nextRoleId)
-    socket?.emit('control:select-role', { roomId: 'main', roleId: nextRoleId })
+    emit('control:select-role', { roomId: 'main', roleId: nextRoleId })
   }
 
   return (
@@ -297,7 +372,7 @@ function ControlApp() {
           ) : controlPage === 'select' ? (
             <ControlSelect
               onBack={() => {
-                socket?.emit('control:reset', { roomId: 'main' })
+                emit('control:reset', { roomId: 'main' })
                 setControlPage('home')
               }}
               onSelect={selectRole}
@@ -306,7 +381,7 @@ function ControlApp() {
             <ControlDetail
               onBack={() => setControlPage('select')}
               onConfirm={() => {
-                socket?.emit('control:start-preview', { roomId: 'main' })
+                emit('control:start-preview', { roomId: 'main' })
                 setControlPage('photo')
               }}
               onNext={() => switchDetailRole(1)}
@@ -314,7 +389,7 @@ function ControlApp() {
               role={detailRole}
             />
           ) : (
-            <ControlPhoto countdown={state.countdown} onStart={() => socket?.emit('control:start-countdown', { roomId: 'main' })} />
+            <ControlPhoto countdown={state.countdown} onStart={() => emit('control:start-countdown', { roomId: 'main' })} />
           )}
         </div>
       </section>
@@ -365,14 +440,130 @@ function ControlDetail({
   onPrev: () => void
   role: Role
 }) {
+  const periodLines = role.artifactPeriod.split('\n')
+
   return (
-    <section className="control-screen detail-screen">
-      <img className="control-screen-img" src={role.detailImage} alt="" draggable={false} />
+    <section className={`control-screen detail-screen detail-composed-screen detail-role-${role.id}`}>
+      <div className="detail-bg-glow" />
+      <img className="detail-logo" src={figmaImages.logo} alt="" draggable={false} />
       <ControlBackButton ariaLabel="返回选择页" onClick={onBack} />
-      <button aria-label="上一个守护者" className="hotspot detail-prev-hotspot" onClick={onPrev} type="button" />
-      <button aria-label="下一个守护者" className="hotspot detail-next-hotspot" onClick={onNext} type="button" />
-      <button aria-label="确认选择" className="hotspot detail-confirm-hotspot" onClick={onConfirm} type="button" />
+
+      <div className="detail-guardian-stage" aria-hidden="true">
+        <div className="detail-guardian-aura" />
+        <img className="detail-guardian-reflection" src={role.previewImage} alt="" draggable={false} />
+        <img className="detail-guardian-image" src={role.previewImage} alt="" draggable={false} />
+        <div className="detail-floor-glow" />
+      </div>
+
+      <DetailArrow ariaLabel="上一个守护者" direction="prev" onClick={onPrev} />
+      <DetailArrow ariaLabel="下一个守护者" direction="next" onClick={onNext} />
+
+      <article className="detail-artifact-card">
+        <header className="detail-artifact-title">
+          <DetailTitleWing side="left" />
+          <h1>{role.name}</h1>
+          <DetailTitleWing side="right" />
+        </header>
+        <div className="detail-artifact-pattern" />
+        <div className="detail-artifact-light" />
+        <img className="detail-artifact-image" src={role.artifactImage} alt={role.name} draggable={false} />
+        <section className="detail-design-panel">
+          <h2>设计原型</h2>
+          <p>
+            {periodLines.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </p>
+        </section>
+      </article>
+
+      <article className="detail-intro-card">
+        <h2>文物简介</h2>
+        <p>{role.artifactIntro}</p>
+      </article>
+
+      <button aria-label="确认选择" className="detail-confirm" onClick={onConfirm} type="button">
+        <span>确认选择</span>
+      </button>
+      <ControlTimeline activeIndex={1} />
     </section>
+  )
+}
+
+function DetailTitleWing({ side }: { side: 'left' | 'right' }) {
+  const isLeft = side === 'left'
+  const filterId = `detail-title-wing-${side}-shadow`
+
+  return (
+    <svg
+      aria-hidden="true"
+      className={`detail-title-wing detail-title-wing-${side}`}
+      fill="none"
+      viewBox={isLeft ? '0 0 58 32' : '0 0 78 32'}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <g filter={`url(#${filterId})`}>
+        <path
+          d={
+            isLeft
+              ? 'M10.9961 14.7564C10.4457 14.7564 9.99957 15.2026 9.99957 15.7529C9.99957 16.3033 10.4457 16.7495 10.9961 16.7495V15.7529V14.7564ZM47.7495 15.7529L41.9961 9.99952L36.2427 15.7529L41.9961 21.5063L47.7495 15.7529ZM10.9961 15.7529V16.7495H41.9961V15.7529V14.7564H10.9961V15.7529Z'
+              : 'M10.0005 15.7529L15.7539 21.5063L21.5073 15.7529L15.7539 9.99952L10.0005 15.7529ZM66.7539 16.7494C67.3043 16.7494 67.7504 16.3033 67.7504 15.7529C67.7504 15.2026 67.3043 14.7564 66.7539 14.7564L66.7539 15.7529L66.7539 16.7494ZM15.7539 15.7529L15.7539 16.7495L66.7539 16.7494L66.7539 15.7529L66.7539 14.7564L15.7539 14.7564L15.7539 15.7529Z'
+          }
+          fill="white"
+        />
+      </g>
+      <defs>
+        <filter colorInterpolationFilters="sRGB" filterUnits="userSpaceOnUse" height="31.5059" id={filterId} width={isLeft ? '57.75' : '77.75'} x="0" y="0">
+          <feFlood floodOpacity="0" result="BackgroundImageFix" />
+          <feColorMatrix in="SourceAlpha" result="hardAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" />
+          <feOffset />
+          <feGaussianBlur stdDeviation="5" />
+          <feComposite in2="hardAlpha" operator="out" />
+          <feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.25 0" />
+          <feBlend in2="BackgroundImageFix" mode="normal" result={`effect1_dropShadow_${side}`} />
+          <feBlend in="SourceGraphic" in2={`effect1_dropShadow_${side}`} mode="normal" result="shape" />
+        </filter>
+      </defs>
+    </svg>
+  )
+}
+
+function DetailArrow({
+  ariaLabel,
+  direction,
+  onClick,
+}: {
+  ariaLabel: string
+  direction: 'prev' | 'next'
+  onClick: () => void
+}) {
+  const isPrev = direction === 'prev'
+
+  return (
+    <button aria-label={ariaLabel} className={`detail-arrow detail-arrow-${direction}`} onClick={onClick} type="button">
+      <svg aria-hidden="true" className="detail-arrow-icon" fill="none" viewBox="0 0 71 143" xmlns="http://www.w3.org/2000/svg">
+        <path
+          d={isPrev ? 'M70.2031 15.6826V1.18262L0.703125 68.6826L70.2031 141.683V127.683L16.7031 68.6826L70.2031 15.6826Z' : 'M0.5 15.6826V1.18262L70 68.6826L0.5 141.683V127.683L54 68.6826L0.5 15.6826Z'}
+          fill="white"
+          fillOpacity="0.22"
+          stroke={`url(#detail-arrow-${direction}-stroke)`}
+        />
+        <defs>
+          <linearGradient
+            gradientUnits="userSpaceOnUse"
+            id={`detail-arrow-${direction}-stroke`}
+            x1={isPrev ? '70.2031' : '0.5'}
+            x2={isPrev ? '0.703125' : '70'}
+            y1="71.4326"
+            y2="71.4326"
+          >
+            <stop stopColor="#B5DEF9" />
+            <stop offset="0.5" stopColor="#C3C3C3" />
+            <stop offset="1" stopColor="#9FD0EC" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </button>
   )
 }
 
