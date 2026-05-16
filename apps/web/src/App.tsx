@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react'
+import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import './App.css'
@@ -11,6 +12,7 @@ type Role = {
   costume: string
   artifact: string
   artifactImage: string
+  detailImage: string
   artifactPeriod: string
   artifactIntro: string
   description: string
@@ -36,8 +38,6 @@ const figmaImages = {
   hero: '/figma/original/source-screen-04-763851a1b0-2305x4096.png',
   ending: '/figma/original/source-screen-06-deb0143475-2304x4096.png',
   photoGroup: '/figma/original/source-screen-04-763851a1b0-2305x4096.png',
-  controlHome: '/figma/original/iPad-UI-2031_9.png',
-  controlSelect: '/figma/original/iPad-UI-2031_15.png',
   detailBronze: '/figma/original/iPad-UI-2040_123.png',
   detailLacquer: '/figma/original/iPad-UI-2041_283.png',
   detailBell: '/figma/original/iPad-UI-2041_342.png',
@@ -56,13 +56,6 @@ const figmaImages = {
   cloud: '/figma/assets/asset-12-62fe3f03fc-4096x4096.png',
 }
 
-const detailScreens: Record<string, string> = {
-  bronze: figmaImages.detailBronze,
-  lacquer: figmaImages.detailLacquer,
-  bell: figmaImages.detailBell,
-  porcelain: figmaImages.detailPorcelain,
-}
-
 const roles: Role[] = [
   {
     id: 'bronze',
@@ -70,6 +63,7 @@ const roles: Role[] = [
     costume: '青铜礼装',
     artifact: '尊盘纹样',
     artifactImage: figmaImages.bronzeArtifact,
+    detailImage: figmaImages.detailBronze,
     artifactPeriod: '战国早期（约433年-前423年）\n1978年湖北随州曾侯乙墓出土\n湖北省博物馆镇馆·国家一级文物',
     artifactIntro: '尊盘是青铜礼器，由尊和盘组成。器身饰蟠螭纹与细密纹样，造型工艺华美，代表了战国时期青铜铸造的高峰。',
     description: '楚式青铜铸造技术的巅峰之作',
@@ -86,6 +80,7 @@ const roles: Role[] = [
     costume: '楚式深衣',
     artifact: '编钟纹样',
     artifactImage: figmaImages.bellArtifact,
+    detailImage: figmaImages.detailBell,
     artifactPeriod: '战国早期（约433年-前423年）\n1978年随州曾侯乙墓出土\n湖北省博物馆镇馆·国家一级文物',
     artifactIntro: '曾侯乙编钟是中国古代礼乐文明的瑰宝，由大小65件青铜编钟组成，音域跨五个半八度，音律精准，气势恢宏。',
     description: '大型礼乐重器，音乐性能完善',
@@ -101,6 +96,7 @@ const roles: Role[] = [
     costume: '青花瓷甲',
     artifact: '梅瓶纹样',
     artifactImage: figmaImages.porcelainArtifact,
+    detailImage: figmaImages.detailPorcelain,
     artifactPeriod: '元代（1271年-1368年）\n1972年湖北省钟祥市元代窖藏出土\n湖北省博物馆镇馆·国家一级文物',
     artifactIntro: '梅瓶小口、短颈、丰肩，青花纹饰层次丰富。器身绘人物图，寓意高洁品格与文人风雅，是元青花的代表作品之一。',
     description: '元代景德镇窑青花瓷精品',
@@ -116,6 +112,7 @@ const roles: Role[] = [
     costume: '漆木羽冠',
     artifact: '虎座鸟架鼓',
     artifactImage: figmaImages.lacquerArtifact,
+    detailImage: figmaImages.detailLacquer,
     artifactPeriod: '战国中期（距今约2310年）\n2002年湖北枣阳九连墩出土\n湖北省博物馆馆藏·国家一级文物',
     artifactIntro: '虎座鸟架鼓是曾侯乙墓出土的珍贵乐器，以虎为座、鸟为架，造型生动华美，装饰细致，体现了楚国时期高超的漆木工艺。',
     description: '战国时期楚国漆器，造型奇特',
@@ -218,62 +215,52 @@ function App() {
 }
 
 function ScreenApp() {
-  const { connected, state } = useRoomSocket('screen')
+  const { state } = useRoomSocket('screen')
   const selectedRole = getSelectedRole(state)
-  const showAr = state.stage === 'preview' || state.stage === 'countdown'
+  const showStage = state.stage === 'preview' || state.stage === 'countdown'
+  const screenBackground = state.stage === 'captured' ? figmaImages.ending : figmaImages.hero
 
   return (
     <main className="screen-shell">
-      <section className="screen-frame">
-        <img className="screen-bg" src={showAr ? figmaImages.ending : figmaImages.hero} alt="" />
+      <section className={`screen-frame screen-frame-${state.stage}`}>
+        <img className="screen-bg" src={screenBackground} alt="" />
 
-        {showAr && (
-          <div className="ar-composite">
-            <iframe
-              className="ar-frame"
-              src={selectedRole.kivicubeUrl}
-              title="Kivicube Body AR"
-              allow="camera; microphone; fullscreen; clipboard-write"
-            />
-            <div className="ar-fallback">
-              <img className="ar-model" src={selectedRole.previewImage} alt="" />
+        {showStage && (
+          <div className="screen-stage">
+            <div className="screen-stage-shell">
+              <iframe
+                className="screen-stage-frame"
+                src={selectedRole.kivicubeUrl}
+                title="Kivicube Body AR"
+                allow="camera; microphone; fullscreen; clipboard-write"
+              />
+              <div className="screen-stage-fallback">
+                <img className="screen-stage-model" src={selectedRole.previewImage} alt="" />
+              </div>
+              {state.stage === 'countdown' && (
+                <div className="screen-countdown" aria-hidden="true">
+                  <div className="screen-countdown-ring" />
+                  <div className="screen-countdown-number">{state.countdown}</div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        <div className="screen-topbar">
-          <div>
-            <span className="eyebrow">当前造型</span>
-            <strong>{selectedRole.name}</strong>
-          </div>
-          <StatusPill connected={connected} />
-        </div>
-
-        {state.stage === 'countdown' && (
-          <div className="countdown-overlay">
-            <div className="countdown-number">{state.countdown}</div>
-          </div>
-        )}
-
         {state.stage === 'captured' && (
-          <div className="result-overlay">
-            <Check size={44} />
+          <div className="screen-result">
+            <Check size={56} strokeWidth={2.4} />
             <h2>照片已发送</h2>
             <p>{selectedRole.name} 造型已完成</p>
           </div>
         )}
 
         {state.stage === 'error' && (
-          <div className="result-overlay error">
+          <div className="screen-result error">
             <h2>连接异常</h2>
             <p>请检查本地服务和 Kivicube 链接</p>
           </div>
         )}
-
-        <div className="screen-footer">
-          <span>房间 main</span>
-          <span>{selectedRole.artifact} · {stageLabel(state.stage)}</span>
-        </div>
       </section>
     </main>
   )
@@ -337,9 +324,14 @@ function ControlApp() {
 
 function ControlHome({ onEnter }: { onEnter: () => void }) {
   return (
-    <section className="control-screen">
-      <img className="control-screen-img" src={figmaImages.controlHome} alt="" draggable={false} />
-      <button aria-label="进入幻装" className="hotspot home-enter-hotspot" onClick={onEnter} type="button" />
+    <section className="control-home">
+      <img className="control-home-bg" src={figmaImages.homeBg} alt="" draggable={false} />
+      <div className="control-glow" />
+      <img className="control-home-logo" src={figmaImages.logo} alt="" draggable={false} />
+      <button className="control-enter" onClick={onEnter} type="button">
+        <span>进入幻装</span>
+        <i aria-hidden="true" />
+      </button>
     </section>
   )
 }
@@ -347,18 +339,15 @@ function ControlHome({ onEnter }: { onEnter: () => void }) {
 function ControlSelect({ onBack, onSelect }: { onBack: () => void; onSelect: (roleId: string) => void }) {
   return (
     <section className="control-screen">
-      <img className="control-screen-img" src={figmaImages.controlSelect} alt="" draggable={false} />
-      <button aria-label="返回首页" className="hotspot select-back-hotspot" onClick={onBack} type="button" />
-      {controlCards.map((card) => (
-        <button
-          aria-label={`选择${roles.find((role) => role.id === card.roleId)!.name}`}
-          className="hotspot select-card-hotspot"
-          key={card.roleId}
-          onClick={() => onSelect(card.roleId)}
-          style={{ left: `${card.left}rem`, top: `${card.top}rem` }}
-          type="button"
-        />
-      ))}
+      <div className="control-glow" />
+      <ControlBackButton ariaLabel="返回首页" onClick={onBack} />
+      <img className="control-logo" src={figmaImages.logo} alt="" draggable={false} />
+      <h1 className="control-title">选择你的荆楚守护者</h1>
+      {controlCards.map((card) => {
+        const role = roles.find((item) => item.id === card.roleId)!
+        return <GuardianCard card={card} key={role.id} onSelect={() => onSelect(role.id)} role={role} />
+      })}
+      <ControlTimeline activeIndex={0} />
     </section>
   )
 }
@@ -377,13 +366,89 @@ function ControlDetail({
   role: Role
 }) {
   return (
-    <section className="control-screen">
-      <img className="control-screen-img" src={detailScreens[role.id]} alt="" draggable={false} />
-      <button aria-label="返回选择页" className="hotspot detail-back-hotspot" onClick={onBack} type="button" />
+    <section className="control-screen detail-screen">
+      <img className="control-screen-img" src={role.detailImage} alt="" draggable={false} />
+      <ControlBackButton ariaLabel="返回选择页" onClick={onBack} />
       <button aria-label="上一个守护者" className="hotspot detail-prev-hotspot" onClick={onPrev} type="button" />
       <button aria-label="下一个守护者" className="hotspot detail-next-hotspot" onClick={onNext} type="button" />
       <button aria-label="确认选择" className="hotspot detail-confirm-hotspot" onClick={onConfirm} type="button" />
     </section>
+  )
+}
+
+function GuardianCard({
+  card,
+  onSelect,
+  role,
+}: {
+  card: (typeof controlCards)[number]
+  onSelect: () => void
+  role: Role
+}) {
+  return (
+    <article
+      className={`guardian-card ${card.imageClass}`}
+      style={
+        {
+          left: `${card.left}rem`,
+          top: `${card.top}rem`,
+          '--card-gradient': role.cardGradient,
+          '--button-gradient': role.buttonGradient,
+          '--role-accent': role.accent,
+        } as CSSProperties
+      }
+    >
+      <div className="guardian-shadow" />
+      <div className="guardian-face" />
+      <div className="guardian-mask">
+        <img className={`guardian-image ${card.imageClass}`} src={role.previewImage} alt="" draggable={false} />
+      </div>
+      <div className="guardian-copy">
+        <h2>{role.name}</h2>
+        <p>{role.description}</p>
+        <button aria-label={`选择${role.name}`} className="guardian-select" onClick={onSelect} type="button">
+          <span>选择</span>
+        </button>
+      </div>
+    </article>
+  )
+}
+
+function ControlBackButton({ ariaLabel, onClick }: { ariaLabel: string; onClick: () => void }) {
+  return (
+    <button aria-label={ariaLabel} className="control-back" onClick={onClick} type="button">
+      <svg aria-hidden="true" className="control-back-icon" viewBox="0 0 62 46">
+        <path d="M22.8 0 0 18.7l22.8 19V23.3c19.5 0 33.8 9.3 39.2 22.7C59.1 20.5 44.4 6.6 22.8 6.6V0Z" />
+      </svg>
+      <span>返回</span>
+    </button>
+  )
+}
+
+function ControlTimeline({ activeIndex }: { activeIndex: number }) {
+  const ringLefts = [346, 666, 986, 1306]
+  const dotLefts = [353, 673, 993, 1313]
+  const labelLefts = [242, 594, 912, 1244]
+  const labels = ['选择守护者', '进入幻装', '倒计时拍照', '生成结果']
+  const currentLeft = ringLefts[activeIndex] - 124
+
+  return (
+    <div className="control-timeline" aria-hidden="true">
+      <div className="timeline-line" />
+      <div className="timeline-active-glow" style={{ left: `${currentLeft + 48}rem` }} />
+      <div className="timeline-current" style={{ left: `${currentLeft}rem` }} />
+      {ringLefts.map((left) => (
+        <span className="timeline-ring" key={`ring-${left}`} style={{ left: `${left}rem` }} />
+      ))}
+      {dotLefts.map((left) => (
+        <span className="timeline-dot" key={`dot-${left}`} style={{ left: `${left}rem` }} />
+      ))}
+      {labels.map((label, index) => (
+        <span className={index === activeIndex ? 'timeline-label active' : 'timeline-label'} key={label} style={{ left: `${labelLefts[index]}rem` }}>
+          {label}
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -436,22 +501,6 @@ function ControlPhoto({ countdown, onStart }: { countdown: number; onStart: () =
       </div>
     </section>
   )
-}
-
-function StatusPill({ connected }: { connected: boolean }) {
-  return <span className={connected ? 'status online' : 'status'}>{connected ? '在线' : '离线'}</span>
-}
-
-function stageLabel(stage: Stage) {
-  const labels: Record<Stage, string> = {
-    idle: '待机',
-    preview: 'AR 试穿',
-    countdown: '倒计时',
-    captured: '拍摄完成',
-    error: '异常',
-  }
-
-  return labels[stage]
 }
 
 export default App
