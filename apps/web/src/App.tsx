@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Camera, Home, QrCode, type LucideIcon } from 'lucide-react'
 import { io, type Socket } from 'socket.io-client'
 import './App.css'
 
@@ -18,7 +19,36 @@ type Role = {
   accent: string
   cardGradient: string
   buttonGradient: string
-  kivicubeUrl: string
+  kivicubeSceneId: string
+}
+
+type KivicubeSceneOptions = {
+  sceneId: string
+  hideLogo?: boolean
+  hideTitle?: boolean
+  hideDownload?: boolean
+  cameraPosition?: 'front' | 'back'
+  hideLoading?: boolean
+  hideScan?: boolean
+  hideTakePhoto?: boolean
+  hideBackground?: boolean
+  hideStart?: boolean
+  disableOpenUrl?: boolean
+  trial?: boolean
+}
+
+type KivicubeIframePlugin = {
+  openKivicubeScene: (
+    iframe: HTMLIFrameElement,
+    options: KivicubeSceneOptions,
+    autoOpen?: boolean,
+  ) => Promise<{ id: string; allow: string; src: string }>
+}
+
+declare global {
+  interface Window {
+    kivicubeIframePlugin?: KivicubeIframePlugin
+  }
 }
 
 type RoomState = {
@@ -30,7 +60,7 @@ type RoomState = {
   updatedAt: number
 }
 
-type ControlPage = 'home' | 'select' | 'detail' | 'photo'
+type ControlPage = 'home' | 'select' | 'detail' | 'photo' | 'result'
 
 const figmaImages = {
   hero: '/figma/original/source-screen-04-763851a1b0-2305x4096.png',
@@ -38,6 +68,7 @@ const figmaImages = {
   photoGroup: '/figma/original/source-screen-04-763851a1b0-2305x4096.png',
   homeBg: '/figma/assets/asset-20-7f8ad124ce-4096x3039.png',
   photoBg: '/figma/assets/asset-31-abbdc98109-4096x3039.png',
+  resultPattern: '/figma/assets/asset-35-c5a50823c8-500x500.png',
   logo: '/figma/assets/asset-12-62fe3f03fc-4096x4096.png',
   bronze: '/figma/assets/asset-23-85619f9691-1558x4096.png',
   bell: '/figma/assets/asset-11-620705a2ec-1668x2591.png',
@@ -65,7 +96,7 @@ const roles: Role[] = [
     cardGradient: 'linear-gradient(180deg, #717171 0%, #244F3C 50%, #737373 100%)',
     buttonGradient:
       'linear-gradient(90deg, rgba(111, 130, 128, 0.6) 0%, rgba(207, 233, 224, 0.6) 50%, rgba(103, 119, 117, 0.6) 100%)',
-    kivicubeUrl: 'https://www.kivicube.com/face-scenes/gut9oeLS4H1d1pufkR11d7TNxUg6kzHH',
+    kivicubeSceneId: 'gut9oeLS4H1d1pufkR11d7TNxUg6kzHH',
   },
   {
     id: 'bell',
@@ -80,7 +111,7 @@ const roles: Role[] = [
     accent: '#d9a343',
     cardGradient: 'linear-gradient(180deg, #89898A 0%, #7D6028 50%, #737373 100%)',
     buttonGradient: 'linear-gradient(90deg, #6B675B 0%, #D1CCB7 50%, #6F6B5F 100%)',
-    kivicubeUrl: 'https://www.kivicube.com/face-scenes/6jsme2ldg2vycBt4QkxVa8SQuEswqYIO',
+    kivicubeSceneId: '6jsme2ldg2vycBt4QkxVa8SQuEswqYIO',
   },
   {
     id: 'porcelain',
@@ -95,7 +126,7 @@ const roles: Role[] = [
     accent: '#5b8fe8',
     cardGradient: 'linear-gradient(180deg, #89898B 0%, #365F8B 50%, #737373 100%)',
     buttonGradient: 'linear-gradient(90deg, #7E88A1 0%, #CFD8E9 50%, #7E88A1 100%)',
-    kivicubeUrl: 'https://www.kivicube.com/face-scenes/hsmGzmagmckaKdBuYBW9AlDDEdFriAbv',
+    kivicubeSceneId: 'hsmGzmagmckaKdBuYBW9AlDDEdFriAbv',
   },
   {
     id: 'lacquer',
@@ -110,7 +141,7 @@ const roles: Role[] = [
     accent: '#d8463f',
     cardGradient: 'linear-gradient(180deg, #717171 0%, #9D3E35 50%, #737373 100%)',
     buttonGradient: 'linear-gradient(90deg, #826F6F 0%, #E9CFCF 50%, #776767 100%)',
-    kivicubeUrl: 'https://www.kivicube.com/face-scenes/rjP1FjcELfZHda6SiHvnE13A5mBSohCo',
+    kivicubeSceneId: 'rjP1FjcELfZHda6SiHvnE13A5mBSohCo',
   },
 ]
 
@@ -204,7 +235,11 @@ function getSelectedRole(state: RoomState) {
 
 function getInitialControlPage(): ControlPage {
   const page = new URLSearchParams(window.location.search).get('page')
-  return page === 'select' || page === 'detail' || page === 'photo' ? page : 'home'
+  if (page === 'select' || page === 'detail' || page === 'photo' || page === 'result') {
+    return page
+  }
+
+  return page === 'end' || page === 'ending' || page === 'captured' ? 'result' : 'home'
 }
 
 function getInitialDetailRoleId() {
@@ -288,8 +323,8 @@ function ScreenApp() {
   const { state: socketState } = useRoomSocket('screen')
   const state = getScreenState(socketState)
   const selectedRole = getSelectedRole(state)
-  const showKivicubeScene = state.stage === 'preview' || state.stage === 'countdown'
-  const showBackground = state.stage !== 'preview'
+  const showKivicubeScene = state.stage === 'countdown'
+  const showBackground = state.stage !== 'countdown'
   const screenBackground = state.stage === 'captured' ? figmaImages.ending : figmaImages.hero
   useDesignRem(screenDesign.width, screenDesign.height)
 
@@ -325,23 +360,51 @@ function ScreenKivicubeStage({
   showCountdown: boolean
   visible: boolean
 }) {
+  const frameRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
+  const loadedSceneIds = useRef(new Set<string>())
+
+  useEffect(() => {
+    const plugin = window.kivicubeIframePlugin
+    if (!plugin) return
+
+    roles.forEach((role) => {
+      const iframe = frameRefs.current[role.id]
+      if (!iframe) return
+      if (loadedSceneIds.current.has(role.kivicubeSceneId)) return
+
+      loadedSceneIds.current.add(role.kivicubeSceneId)
+      void plugin.openKivicubeScene(iframe, {
+        sceneId: role.kivicubeSceneId,
+        hideLogo: true,
+        hideTitle: true,
+        hideDownload: true,
+        cameraPosition: 'front',
+        hideLoading: true,
+        hideScan: true,
+        hideTakePhoto: false,
+        hideBackground: true,
+        hideStart: true,
+        disableOpenUrl: true,
+        trial: true,
+      })
+    })
+  }, [])
+
   return (
     <div className={visible ? 'screen-stage screen-stage-visible' : 'screen-stage'} aria-hidden={!visible}>
       <div className="screen-stage-shell">
-        {roles.map((role) => {
-          const isActive = visible && role.id === activeRoleId
-
-          return (
-            <iframe
-              allow="camera; microphone; gyroscope; accelerometer; magnetometer; fullscreen; clipboard-write"
-              allowFullScreen
-              className={isActive ? 'screen-stage-frame screen-stage-frame-active' : 'screen-stage-frame'}
-              key={role.id}
-              src={role.kivicubeUrl}
-              title={`${role.name} Kivicube Body AR`}
-            />
-          )
-        })}
+        {roles.map((role) => (
+          <iframe
+            allow="camera; microphone; gyroscope; accelerometer; magnetometer; fullscreen; clipboard-write"
+            allowFullScreen
+            className={visible && role.id === activeRoleId ? 'screen-stage-frame screen-stage-frame-active' : 'screen-stage-frame'}
+            key={role.id}
+            ref={(element) => {
+              frameRefs.current[role.id] = element
+            }}
+            title={`${role.name} Kivicube Body AR`}
+          />
+        ))}
         {showCountdown && (
           <div className="screen-countdown" aria-hidden="true">
             <div className="screen-countdown-ring" />
@@ -415,8 +478,10 @@ function ControlApp() {
   const selectedRole = getSelectedRole(state)
   const [controlPage, setControlPage] = useState<ControlPage>(getInitialControlPage)
   const [detailRoleId, setDetailRoleId] = useState(getInitialDetailRoleId)
+  const [captureArmed, setCaptureArmed] = useState(controlPage === 'result')
   const detailRole = roles.find((role) => role.id === detailRoleId) ?? selectedRole
   useDesignRem(controlDesign.width, controlDesign.height)
+  const controlViewPage = controlPage === 'photo' && state.stage === 'captured' && captureArmed ? 'result' : controlPage
 
   const selectRole = (roleId: string) => {
     setDetailRoleId(roleId)
@@ -436,29 +501,51 @@ function ControlApp() {
     <main className="control-stage">
       <section className="control-scale">
         <div className="control-canvas">
-          {controlPage === 'home' ? (
+          {controlViewPage === 'home' ? (
             <ControlHome onEnter={() => setControlPage('select')} />
-          ) : controlPage === 'select' ? (
+          ) : controlViewPage === 'select' ? (
             <ControlSelect
               onBack={() => {
                 emit('control:reset', { roomId: 'main' })
                 setControlPage('home')
+                setCaptureArmed(false)
               }}
               onSelect={selectRole}
             />
-          ) : controlPage === 'detail' ? (
+          ) : controlViewPage === 'detail' ? (
             <ControlDetail
               onBack={() => setControlPage('select')}
               onConfirm={() => {
                 emit('control:start-preview', { roomId: 'main' })
                 setControlPage('photo')
+                setCaptureArmed(false)
               }}
               onNext={() => switchDetailRole(1)}
               onPrev={() => switchDetailRole(-1)}
               role={detailRole}
             />
+          ) : controlViewPage === 'photo' ? (
+            <ControlPhoto
+              countdown={state.countdown}
+              onStart={() => {
+                setCaptureArmed(true)
+                emit('control:start-countdown', { roomId: 'main' })
+              }}
+            />
           ) : (
-            <ControlPhoto countdown={state.countdown} onStart={() => emit('control:start-countdown', { roomId: 'main' })} />
+            <ControlResult
+              onDone={() => {
+                emit('control:reset', { roomId: 'main' })
+                setControlPage('home')
+                setCaptureArmed(false)
+              }}
+              onRetake={() => {
+                setCaptureArmed(false)
+                emit('control:start-preview', { roomId: 'main' })
+                setControlPage('photo')
+              }}
+              photoUrl={state.photoUrl}
+            />
           )}
         </div>
       </section>
@@ -687,26 +774,55 @@ function ControlBackButton({ ariaLabel, onClick }: { ariaLabel: string; onClick:
   )
 }
 
-function ControlTimeline({ activeIndex }: { activeIndex: number }) {
-  const ringLefts = [346, 666, 986, 1306]
-  const dotLefts = [353, 673, 993, 1313]
-  const labelLefts = [242, 594, 912, 1244]
+type ControlTimelineVariant = 'default' | 'result'
+
+function ControlTimeline({ activeIndex, variant = 'default' }: { activeIndex: number; variant?: ControlTimelineVariant }) {
+  const layouts = {
+    default: {
+      ringLefts: [346, 666, 986, 1306],
+      dotLefts: [353, 673, 993, 1313],
+      labelLefts: [242, 594, 912, 1244],
+      lineLeft: 358,
+      lineTop: 2174,
+      glowTop: 2150,
+      ringTop: 2155,
+      dotTop: 2161,
+      currentTop: 2143,
+      labelTop: 2219,
+    },
+    result: {
+      ringLefts: [345, 665, 985, 1305],
+      dotLefts: [352, 672, 992, 1312],
+      labelLefts: [275, 616, 917, 1252],
+      lineLeft: 363,
+      lineTop: 2243,
+      glowTop: 2219,
+      ringTop: 2224,
+      dotTop: 2230,
+      currentTop: 2212,
+      labelTop: 2288,
+    },
+  }[variant]
   const labels = ['选择守护者', '进入幻装', '倒计时拍照', '生成结果']
-  const currentLeft = ringLefts[activeIndex] - 124
+  const currentLeft = layouts.ringLefts[activeIndex] - 124
 
   return (
     <div className="control-timeline" aria-hidden="true">
-      <div className="timeline-line" />
-      <div className="timeline-active-glow" style={{ left: `${currentLeft + 48}rem` }} />
-      <div className="timeline-current" style={{ left: `${currentLeft}rem` }} />
-      {ringLefts.map((left) => (
-        <span className="timeline-ring" key={`ring-${left}`} style={{ left: `${left}rem` }} />
+      <div className="timeline-line" style={{ left: `${layouts.lineLeft}rem`, top: `${layouts.lineTop}rem` }} />
+      <div className="timeline-active-glow" style={{ left: `${currentLeft + 48}rem`, top: `${layouts.glowTop}rem` }} />
+      <div className="timeline-current" style={{ left: `${currentLeft}rem`, top: `${layouts.currentTop}rem` }} />
+      {layouts.ringLefts.map((left) => (
+        <span className="timeline-ring" key={`ring-${left}`} style={{ left: `${left}rem`, top: `${layouts.ringTop}rem` }} />
       ))}
-      {dotLefts.map((left) => (
-        <span className="timeline-dot" key={`dot-${left}`} style={{ left: `${left}rem` }} />
+      {layouts.dotLefts.map((left) => (
+        <span className="timeline-dot" key={`dot-${left}`} style={{ left: `${left}rem`, top: `${layouts.dotTop}rem` }} />
       ))}
       {labels.map((label, index) => (
-        <span className={index === activeIndex ? 'timeline-label active' : 'timeline-label'} key={label} style={{ left: `${labelLefts[index]}rem` }}>
+        <span
+          className={index === activeIndex ? 'timeline-label active' : 'timeline-label'}
+          key={label}
+          style={{ left: `${layouts.labelLefts[index]}rem`, top: `${layouts.labelTop}rem` }}
+        >
           {label}
         </span>
       ))}
@@ -762,6 +878,54 @@ function ControlPhoto({ countdown, onStart }: { countdown: number; onStart: () =
         <span className="photo-timeline-label label-4">生成结果</span>
       </div>
     </section>
+  )
+}
+
+function ControlResult({ onDone, onRetake, photoUrl }: { onDone: () => void; onRetake: () => void; photoUrl?: string }) {
+  return (
+    <section className="control-screen result-screen">
+      <img className="result-pattern" src={figmaImages.resultPattern} alt="" draggable={false} />
+      <div className="result-title-block">
+        <span className="result-title-line result-title-line-left" />
+        <h1>生成结果</h1>
+        <span className="result-title-line result-title-line-right" />
+        <p>您的AR试穿效果</p>
+      </div>
+
+      <div className="result-photo-frame">{photoUrl && <img src={photoUrl} alt="AR试穿效果" draggable={false} />}</div>
+
+      <div className="result-actions">
+        <ResultActionButton caption="保存您的文物造型" icon={QrCode} title="生成二维码" variant="qr" />
+        <ResultActionButton caption="重新选择或调整" icon={Camera} onClick={onRetake} title="重拍" variant="retake" />
+        <ResultActionButton caption="探索其他珍贵文物" icon={Home} onClick={onDone} title="完成，返回首页" variant="done" />
+      </div>
+
+      <ControlTimeline activeIndex={3} variant="result" />
+    </section>
+  )
+}
+
+function ResultActionButton({
+  caption,
+  icon: Icon,
+  onClick,
+  title,
+  variant,
+}: {
+  caption: string
+  icon: LucideIcon
+  onClick?: () => void
+  title: string
+  variant: 'qr' | 'retake' | 'done'
+}) {
+  return (
+    <button aria-label={title} className={`result-action result-action-${variant}`} onClick={onClick} type="button">
+      <Icon aria-hidden="true" className="result-action-icon" strokeWidth={2.1} />
+      <span className="result-action-copy">
+        <strong>{title}</strong>
+        <small>{caption}</small>
+      </span>
+    </button>
   )
 }
 
