@@ -1,4 +1,3 @@
-import { Check } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
@@ -12,7 +11,6 @@ type Role = {
   costume: string
   artifact: string
   artifactImage: string
-  detailImage: string
   artifactPeriod: string
   artifactIntro: string
   description: string
@@ -38,10 +36,6 @@ const figmaImages = {
   hero: '/figma/original/source-screen-04-763851a1b0-2305x4096.png',
   ending: '/figma/original/source-screen-06-deb0143475-2304x4096.png',
   photoGroup: '/figma/original/source-screen-04-763851a1b0-2305x4096.png',
-  detailBronze: '/figma/original/iPad-UI-2040_123.png',
-  detailLacquer: '/figma/original/iPad-UI-2041_283.png',
-  detailBell: '/figma/original/iPad-UI-2041_342.png',
-  detailPorcelain: '/figma/original/iPad-UI-2042_404.png',
   homeBg: '/figma/assets/asset-20-7f8ad124ce-4096x3039.png',
   photoBg: '/figma/assets/asset-31-abbdc98109-4096x3039.png',
   logo: '/figma/assets/asset-12-62fe3f03fc-4096x4096.png',
@@ -63,7 +57,6 @@ const roles: Role[] = [
     costume: '青铜礼装',
     artifact: '尊盘纹样',
     artifactImage: figmaImages.bronzeArtifact,
-    detailImage: figmaImages.detailBronze,
     artifactPeriod: '战国早期（约433年-前423年）\n1978年湖北随州曾侯乙墓出土\n湖北省博物馆镇馆·国家一级文物',
     artifactIntro: '尊盘是青铜礼器，由尊和盘组成。器身饰蟠螭纹与细密纹样，造型工艺华美，代表了战国时期青铜铸造的高峰。',
     description: '楚式青铜铸造技术的巅峰之作',
@@ -72,7 +65,7 @@ const roles: Role[] = [
     cardGradient: 'linear-gradient(180deg, #717171 0%, #244F3C 50%, #737373 100%)',
     buttonGradient:
       'linear-gradient(90deg, rgba(111, 130, 128, 0.6) 0%, rgba(207, 233, 224, 0.6) 50%, rgba(103, 119, 117, 0.6) 100%)',
-    kivicubeUrl: 'https://www.kivicube.com/',
+    kivicubeUrl: 'https://www.kivicube.com/face-scenes/gut9oeLS4H1d1pufkR11d7TNxUg6kzHH',
   },
   {
     id: 'bell',
@@ -80,7 +73,6 @@ const roles: Role[] = [
     costume: '楚式深衣',
     artifact: '编钟纹样',
     artifactImage: figmaImages.bellArtifact,
-    detailImage: figmaImages.detailBell,
     artifactPeriod: '战国早期（约433年-前423年）\n1978年随州曾侯乙墓出土\n湖北省博物馆镇馆·国家一级文物',
     artifactIntro: '曾侯乙编钟是中国古代礼乐文明的瑰宝，由大小65件青铜编钟组成，音域跨五个半八度，音律精准，气势恢宏。',
     description: '大型礼乐重器，音乐性能完善',
@@ -88,7 +80,7 @@ const roles: Role[] = [
     accent: '#d9a343',
     cardGradient: 'linear-gradient(180deg, #89898A 0%, #7D6028 50%, #737373 100%)',
     buttonGradient: 'linear-gradient(90deg, #6B675B 0%, #D1CCB7 50%, #6F6B5F 100%)',
-    kivicubeUrl: 'https://www.kivicube.com/',
+    kivicubeUrl: 'https://www.kivicube.com/face-scenes/6jsme2ldg2vycBt4QkxVa8SQuEswqYIO',
   },
   {
     id: 'porcelain',
@@ -96,7 +88,6 @@ const roles: Role[] = [
     costume: '青花瓷甲',
     artifact: '梅瓶纹样',
     artifactImage: figmaImages.porcelainArtifact,
-    detailImage: figmaImages.detailPorcelain,
     artifactPeriod: '元代（1271年-1368年）\n1972年湖北省钟祥市元代窖藏出土\n湖北省博物馆镇馆·国家一级文物',
     artifactIntro: '梅瓶小口、短颈、丰肩，青花纹饰层次丰富。器身绘人物图，寓意高洁品格与文人风雅，是元青花的代表作品之一。',
     description: '元代景德镇窑青花瓷精品',
@@ -104,7 +95,7 @@ const roles: Role[] = [
     accent: '#5b8fe8',
     cardGradient: 'linear-gradient(180deg, #89898B 0%, #365F8B 50%, #737373 100%)',
     buttonGradient: 'linear-gradient(90deg, #7E88A1 0%, #CFD8E9 50%, #7E88A1 100%)',
-    kivicubeUrl: 'https://www.kivicube.com/',
+    kivicubeUrl: 'https://www.kivicube.com/face-scenes/hsmGzmagmckaKdBuYBW9AlDDEdFriAbv',
   },
   {
     id: 'lacquer',
@@ -112,7 +103,6 @@ const roles: Role[] = [
     costume: '漆木羽冠',
     artifact: '虎座鸟架鼓',
     artifactImage: figmaImages.lacquerArtifact,
-    detailImage: figmaImages.detailLacquer,
     artifactPeriod: '战国中期（距今约2310年）\n2002年湖北枣阳九连墩出土\n湖北省博物馆馆藏·国家一级文物',
     artifactIntro: '虎座鸟架鼓是曾侯乙墓出土的珍贵乐器，以虎为座、鸟为架，造型生动华美，装饰细致，体现了楚国时期高超的漆木工艺。',
     description: '战国时期楚国漆器，造型奇特',
@@ -120,7 +110,7 @@ const roles: Role[] = [
     accent: '#d8463f',
     cardGradient: 'linear-gradient(180deg, #717171 0%, #9D3E35 50%, #737373 100%)',
     buttonGradient: 'linear-gradient(90deg, #826F6F 0%, #E9CFCF 50%, #776767 100%)',
-    kivicubeUrl: 'https://www.kivicube.com/',
+    kivicubeUrl: 'https://www.kivicube.com/face-scenes/rjP1FjcELfZHda6SiHvnE13A5mBSohCo',
   },
 ]
 
@@ -154,6 +144,11 @@ const idleArtifactItems = [
 const controlDesign = {
   width: 1668,
   height: 2388,
+}
+
+const screenDesign = {
+  width: 4320,
+  height: 7680,
 }
 
 const controlCards = [
@@ -217,6 +212,49 @@ function getInitialDetailRoleId() {
   return roles.some((role) => role.id === roleId) ? roleId! : defaultState.selectedRoleId
 }
 
+function getScreenState(socketState: RoomState): RoomState {
+  const params = new URLSearchParams(window.location.search)
+  const stageParam = params.get('stage') ?? params.get('page') ?? params.get('state')
+  const stage = getScreenStage(stageParam)
+  const roleId = params.get('role')
+
+  if (!stage) {
+    return roles.some((role) => role.id === roleId) ? { ...socketState, selectedRoleId: roleId! } : socketState
+  }
+
+  const countdownParam = params.get('countdown')
+  const queryCountdown = countdownParam === null ? NaN : Number(countdownParam)
+  const fallbackCountdown = socketState.countdown > 0 ? socketState.countdown : 5
+  const countdown = Number.isFinite(queryCountdown) && queryCountdown > 0 ? queryCountdown : fallbackCountdown
+
+  return {
+    ...socketState,
+    stage,
+    selectedRoleId: roles.some((role) => role.id === roleId) ? roleId! : socketState.selectedRoleId,
+    countdown: stage === 'countdown' ? countdown : socketState.countdown,
+  }
+}
+
+function getScreenStage(stage: string | null): Stage | null {
+  if (stage === 'idle' || stage === 'preview' || stage === 'countdown' || stage === 'captured' || stage === 'error') {
+    return stage
+  }
+
+  if (stage === 'tryon' || stage === 'ar') {
+    return 'preview'
+  }
+
+  if (stage === 'timer') {
+    return 'countdown'
+  }
+
+  if (stage === 'sent' || stage === 'photo-sent') {
+    return 'captured'
+  }
+
+  return null
+}
+
 function useDesignRem(width: number, height: number) {
   useEffect(() => {
     const root = document.documentElement
@@ -247,11 +285,13 @@ function App() {
 }
 
 function ScreenApp() {
-  const { state } = useRoomSocket('screen')
+  const { state: socketState } = useRoomSocket('screen')
+  const state = getScreenState(socketState)
   const selectedRole = getSelectedRole(state)
-  const showStage = state.stage === 'countdown'
+  const showKivicubeScene = state.stage === 'preview' || state.stage === 'countdown'
   const showBackground = state.stage !== 'preview'
   const screenBackground = state.stage === 'captured' ? figmaImages.ending : figmaImages.hero
+  useDesignRem(screenDesign.width, screenDesign.height)
 
   return (
     <main className="screen-shell">
@@ -259,37 +299,9 @@ function ScreenApp() {
         {showBackground && <img className="screen-bg" src={screenBackground} alt="" />}
 
         {state.stage === 'idle' && <ScreenIdleOverlay />}
-        {state.stage === 'preview' && <ScreenArStart />}
+        {state.stage === 'captured' && <ScreenCapturedOverlay />}
 
-        {showStage && (
-          <div className="screen-stage">
-            <div className="screen-stage-shell">
-              <iframe
-                className="screen-stage-frame"
-                src={selectedRole.kivicubeUrl}
-                title="Kivicube Body AR"
-                allow="camera; microphone; fullscreen; clipboard-write"
-              />
-              <div className="screen-stage-fallback">
-                <img className="screen-stage-model" src={selectedRole.previewImage} alt="" />
-              </div>
-              {state.stage === 'countdown' && (
-                <div className="screen-countdown" aria-hidden="true">
-                  <div className="screen-countdown-ring" />
-                  <div className="screen-countdown-number">{state.countdown}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {state.stage === 'captured' && (
-          <div className="screen-result">
-            <Check size={56} strokeWidth={2.4} />
-            <h2>照片已发送</h2>
-            <p>{selectedRole.name} 造型已完成</p>
-          </div>
-        )}
+        <ScreenKivicubeStage activeRoleId={selectedRole.id} countdown={state.countdown} showCountdown={state.stage === 'countdown'} visible={showKivicubeScene} />
 
         {state.stage === 'error' && (
           <div className="screen-result error">
@@ -302,8 +314,65 @@ function ScreenApp() {
   )
 }
 
-function ScreenArStart() {
-  return <div className="screen-ar-start">A R 试 穿 页</div>
+function ScreenKivicubeStage({
+  activeRoleId,
+  countdown,
+  showCountdown,
+  visible,
+}: {
+  activeRoleId: string
+  countdown: number
+  showCountdown: boolean
+  visible: boolean
+}) {
+  return (
+    <div className={visible ? 'screen-stage screen-stage-visible' : 'screen-stage'} aria-hidden={!visible}>
+      <div className="screen-stage-shell">
+        {roles.map((role) => {
+          const isActive = visible && role.id === activeRoleId
+
+          return (
+            <iframe
+              allow="camera; microphone; gyroscope; accelerometer; magnetometer; fullscreen; clipboard-write"
+              allowFullScreen
+              className={isActive ? 'screen-stage-frame screen-stage-frame-active' : 'screen-stage-frame'}
+              key={role.id}
+              src={role.kivicubeUrl}
+              title={`${role.name} Kivicube Body AR`}
+            />
+          )
+        })}
+        {showCountdown && (
+          <div className="screen-countdown" aria-hidden="true">
+            <div className="screen-countdown-ring" />
+            <div className="screen-countdown-number">{countdown}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ScreenCapturedOverlay() {
+  return (
+    <div className="screen-captured-layer">
+      <img className="screen-captured-logo" src={figmaImages.logo} alt="" />
+      <div className="screen-captured-title">照片已发送至操作台</div>
+      <div className="screen-captured-subtitle">PHOTO SENT TO CONSOLE</div>
+      <div className="screen-captured-corner screen-captured-corner-tl">
+        <i />
+      </div>
+      <div className="screen-captured-corner screen-captured-corner-tr">
+        <i />
+      </div>
+      <div className="screen-captured-corner screen-captured-corner-bl">
+        <i />
+      </div>
+      <div className="screen-captured-corner screen-captured-corner-br">
+        <i />
+      </div>
+    </div>
+  )
 }
 
 function ScreenIdleOverlay() {
@@ -450,7 +519,9 @@ function ControlDetail({
 
       <div className="detail-guardian-stage" aria-hidden="true">
         <div className="detail-guardian-aura" />
-        <img className="detail-guardian-reflection" src={role.previewImage} alt="" draggable={false} />
+        <div className="detail-guardian-reflection">
+          <img className="detail-guardian-reflection-img" src={role.previewImage} alt="" draggable={false} />
+        </div>
         <img className="detail-guardian-image" src={role.previewImage} alt="" draggable={false} />
         <div className="detail-floor-glow" />
       </div>

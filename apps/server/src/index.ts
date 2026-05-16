@@ -37,7 +37,7 @@ io.on('connection', (socket) => {
   })
 
   socket.on('control:select-role', ({ roomId, roleId }: { roomId: string; roleId: string }) => {
-    updateRoom(roomId, { selectedRoleId: roleId, stage: 'preview', countdown: 0 })
+    updateRoom(roomId, { selectedRoleId: roleId, countdown: 0 })
   })
 
   socket.on('control:start-preview', ({ roomId }: { roomId: string }) => {
@@ -75,7 +75,7 @@ function ensureRoom(roomId: string) {
   const state: RoomState = {
     roomId,
     stage: 'idle',
-    selectedRoleId: 'phoenix',
+    selectedRoleId: 'bronze',
     countdown: 0,
     updatedAt: Date.now(),
   }
