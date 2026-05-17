@@ -4,7 +4,6 @@ import { createServer } from 'node:http'
 import { networkInterfaces } from 'node:os'
 import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Server } from 'socket.io'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const packagedWebPort = 5173
@@ -34,7 +33,7 @@ app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
 app.commandLine.appendSwitch('touch-events', 'enabled')
 
 app.whenReady().then(async () => {
-  if (app.isPackaged && !process.env.JINGCHU_WEB_URL) startPackagedRuntime()
+  if (app.isPackaged && !process.env.JINGCHU_WEB_URL) await startPackagedRuntime()
   await requestSystemMediaAccess()
   installMediaPermissionHandlers()
   createWindow()
@@ -273,9 +272,10 @@ async function logGuestSnapshot(guestWebContents) {
   }
 }
 
-function startPackagedRuntime() {
+async function startPackagedRuntime() {
+  const { Server } = await import('socket.io')
   startStaticServer(join(process.resourcesPath, 'web'), packagedWebPort)
-  startSocketServer(packagedServerPort)
+  startSocketServer(packagedServerPort, Server)
 }
 
 function startStaticServer(root, port) {
@@ -312,7 +312,7 @@ function getContentType(filePath) {
   return 'application/octet-stream'
 }
 
-function startSocketServer(port) {
+function startSocketServer(port, SocketServer) {
   const httpServer = createServer((request, response) => {
     if (request.url === '/health') {
       response.setHeader('Content-Type', 'application/json')
@@ -323,7 +323,7 @@ function startSocketServer(port) {
     response.statusCode = 404
     response.end()
   })
-  const io = new Server(httpServer, { cors: { origin: '*' } })
+  const io = new SocketServer(httpServer, { cors: { origin: '*' } })
 
   io.on('connection', (socket) => {
     socket.on('room:join', ({ roomId }) => {
