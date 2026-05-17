@@ -4,6 +4,8 @@
 
 ## 运行
 
+网页开发：
+
 ```bash
 pnpm install
 pnpm dev
@@ -12,6 +14,40 @@ pnpm dev
 - 大屏端：`http://localhost:5173/screen`
 - 小屏端：`http://localhost:5173/control`
 - 服务端健康检查：`http://localhost:4000/health`
+
+展会桌面大屏：
+
+```bash
+pnpm dev:desktop
+```
+
+桌面壳会先确认本地服务和网页已启动，然后打开启动页：
+
+- `进入大屏`：Mac/PC 投屏到电视时使用。大屏页面继续复用 `/screen`，Kivicube AR 由 Electron 独立承载，避免桌面浏览器 iframe 进入扫码页。
+- `打开控制台测试`：只用于电脑本机调试控制端。
+- `场景预检`：分别打开 4 个 Kivicube 穿戴场景，不启动倒计时，用于展前确认每个场景已加载到可用状态。
+- iPad 控制端：让 iPad 和电脑连接同一 WiFi，在 iPad 浏览器打开启动页展示的局域网 `http://<电脑IP>:5173/control` 地址。
+
+## 发布 Windows 安装包
+
+GitHub Actions 会在 `main` 分支上的提交被打 tag 时自动构建 Windows `.exe` 安装包。
+
+推荐 tag 格式：
+
+```bash
+git checkout main
+git pull origin main
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+触发条件：
+
+- tag 必须 push 到 GitHub。
+- tag 指向的提交必须已经在 `origin/main` 上，否则 workflow 会在校验步骤失败。
+- tag 名建议使用 `v主版本.次版本.修订号`，例如 `v0.1.0`、`v0.1.1`、`v0.2.0`。
+
+构建完成后，安装包会出现在该 tag 对应的 GitHub Release 附件里，同时 workflow artifact 里也会保留一份。
 
 ## Figma 资源
 

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>荆楚幻装桌面端</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #060708;
+        color: #f6f1e4;
+        font-family:
+          "Source Han Sans CN",
+          "Microsoft YaHei",
+          system-ui,
+          sans-serif;
+      }
+
+      main {
+        display: grid;
+        min-height: 100vh;
+        grid-template-columns: minmax(320px, 560px) minmax(320px, 1fr);
+        gap: 48px;
+        align-items: center;
+        padding: 72px;
+      }
+
+      h1 {
+        margin: 0 0 16px;
+        font-family: "Source Han Serif SC", "Noto Serif CJK SC", serif;
+        font-size: 54px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 0;
+        color: rgba(246, 241, 228, 0.72);
+        font-size: 18px;
+        line-height: 1.7;
+      }
+
+      .actions {
+        display: grid;
+        gap: 18px;
+        margin-top: 46px;
+      }
+
+      .scene-check {
+        margin-top: 42px;
+      }
+
+      .scene-check h2 {
+        margin: 0 0 14px;
+        color: rgba(246, 241, 228, 0.72);
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .scene-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      button {
+        width: 100%;
+        height: 72px;
+        border: 1px solid rgba(246, 241, 228, 0.28);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        cursor: pointer;
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      .scene-grid button {
+        height: 56px;
+        font-size: 17px;
+        font-weight: 600;
+      }
+
+      button:first-child {
+        background: linear-gradient(90deg, rgba(40, 185, 133, 0.72), rgba(217, 163, 67, 0.72));
+      }
+
+      .panel {
+        border: 1px solid rgba(246, 241, 228, 0.16);
+        border-radius: 8px;
+        padding: 36px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .label {
+        color: rgba(246, 241, 228, 0.56);
+        font-size: 15px;
+      }
+
+      .url {
+        margin-top: 12px;
+        color: #fff;
+        font-size: 24px;
+        line-height: 1.4;
+        word-break: break-all;
+      }
+
+      .status {
+        display: grid;
+        gap: 28px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>荆楚幻装</h1>
+        <p>桌面端用于展会大屏承载。iPad 控制台请连接同一局域网后打开右侧地址。</p>
+        <div class="actions">
+          <button id="screen" type="button">进入大屏</button>
+          <button id="control" type="button">打开控制台测试</button>
+        </div>
+        <div class="scene-check">
+          <h2>场景预检</h2>
+          <div class="scene-grid" id="scene-grid"></div>
+        </div>
+      </section>
+      <section class="panel status">
+        <div>
+          <div class="label">大屏地址</div>
+          <div class="url" id="screen-url">-</div>
+        </div>
+        <div>
+          <div class="label">iPad 控制台地址</div>
+          <div class="url" id="control-url">-</div>
+        </div>
+      </section>
+    </main>
+    <script>
+      const api = window.jingchuDesktop
+      const roles = [
+        { id: 'bronze', name: '尊盘' },
+        { id: 'bell', name: '编钟' },
+        { id: 'porcelain', name: '梅瓶' },
+        { id: 'lacquer', name: '虎座鸟架鼓' },
+      ]
+
+      api.getInfo().then((info) => {
+        document.querySelector('#screen-url').textContent = info.screenUrl
+        document.querySelector('#control-url').textContent = info.controlUrl
+      })
+
+      const sceneGrid = document.querySelector('#scene-grid')
+      for (const role of roles) {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.textContent = role.name
+        button.addEventListener('click', () => {
+          api.openSceneDebug(role.id)
+        })
+        sceneGrid.append(button)
+      }
+
+      document.querySelector('#screen').addEventListener('click', () => {
+        api.openScreen()
+      })
+
+      document.querySelector('#control').addEventListener('click', () => {
+        api.openControl()
+      })
+    </script>
+  </body>
+</html>

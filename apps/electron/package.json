@@ -1,0 +1,54 @@
+{
+  "name": "@jingchu/electron",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/main.mjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "prepare:web": "node scripts/prepare-web.mjs",
+    "dist:win": "pnpm --filter @jingchu/web build && pnpm --filter @jingchu/electron prepare:web && electron-builder --win nsis",
+    "start": "electron src/main.mjs",
+    "lint": "node --check scripts/dev.mjs && node --check scripts/prepare-web.mjs && node --check src/main.mjs && node --check src/preload.mjs"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.0.12",
+    "electron": "^39.2.7"
+  },
+  "build": {
+    "appId": "com.jingchu.ar.screen",
+    "productName": "Jingchu AR Screen",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "package.json",
+      "src/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "build/web",
+        "to": "web"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "JingchuAR-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

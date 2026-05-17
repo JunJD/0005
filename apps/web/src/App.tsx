@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { createElement, useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Home, QrCode, type LucideIcon } from 'lucide-react'
 import { io, type Socket } from 'socket.io-client'
 import './App.css'
@@ -182,6 +182,9 @@ const screenDesign = {
   height: 7680,
 }
 
+const electronMobileUserAgent =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+
 const controlCards = [
   { roleId: 'bronze', left: 245, top: 421, imageClass: 'bronze' },
   { roleId: 'lacquer', left: 838, top: 421, imageClass: 'lacquer' },
@@ -203,7 +206,7 @@ function useRoomSocket(clientType: 'screen' | 'control') {
   const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
-    const nextSocket = io(import.meta.env.VITE_SERVER_URL ?? 'http://localhost:4000', {
+    const nextSocket = io(getServerUrl(), {
       transports: ['websocket'],
     })
     socketRef.current = nextSocket
@@ -227,6 +230,13 @@ function useRoomSocket(clientType: 'screen' | 'control') {
   }, [])
 
   return { connected, emit, state }
+}
+
+function getServerUrl() {
+  if (import.meta.env.VITE_SERVER_URL) return import.meta.env.VITE_SERVER_URL
+
+  const { hostname, protocol } = window.location
+  return `${protocol}//${hostname}:4000`
 }
 
 function getSelectedRole(state: RoomState) {
@@ -290,12 +300,20 @@ function getScreenStage(stage: string | null): Stage | null {
   return null
 }
 
-function useDesignRem(width: number, height: number) {
+function isElectronArHost() {
+  return new URLSearchParams(window.location.search).get('electronAr') === '1'
+}
+
+function isSceneDebugMode() {
+  return new URLSearchParams(window.location.search).get('sceneDebug') === '1'
+}
+
+function useDesignRem(width: number, height: number, scaleMode: 'contain' | 'width' = 'contain') {
   useEffect(() => {
     const root = document.documentElement
     const previousFontSize = root.style.fontSize
     const resize = () => {
-      const scale = Math.min(window.innerWidth / width, window.innerHeight / height)
+      const scale = scaleMode === 'width' ? window.innerWidth / width : Math.min(window.innerWidth / width, window.innerHeight / height)
       root.style.fontSize = `${scale}px`
     }
 
@@ -306,7 +324,7 @@ function useDesignRem(width: number, height: number) {
       window.removeEventListener('resize', resize)
       root.style.fontSize = previousFontSize
     }
-  }, [height, width])
+  }, [height, scaleMode, width])
 }
 
 function App() {
@@ -320,23 +338,33 @@ function App() {
 }
 
 function ScreenApp() {
-  const { state: socketState } = useRoomSocket('screen')
+  const { connected, state: socketState } = useRoomSocket('screen')
   const state = getScreenState(socketState)
   const selectedRole = getSelectedRole(state)
-  const showKivicubeScene = state.stage === 'countdown'
-  const showBackground = state.stage !== 'countdown'
+  const electronArHost = isElectronArHost()
+  const sceneDebugMode = electronArHost && isSceneDebugMode()
+  const showKivicubeScene = sceneDebugMode || state.stage === 'countdown'
+  const showBackground = !showKivicubeScene
   const screenBackground = state.stage === 'captured' ? figmaImages.ending : figmaImages.hero
-  useDesignRem(screenDesign.width, screenDesign.height)
+  useDesignRem(screenDesign.width, screenDesign.height, 'width')
 
   return (
-    <main className="screen-shell">
-      <section className={`screen-frame screen-frame-${state.stage}`}>
+    <main className={sceneDebugMode ? 'screen-shell screen-shell-scene-debug' : 'screen-shell'}>
+      <section className={sceneDebugMode ? 'screen-frame screen-frame-scene-debug' : `screen-frame screen-frame-${state.stage}`}>
         {showBackground && <img className="screen-bg" src={screenBackground} alt="" />}
 
-        {state.stage === 'idle' && <ScreenIdleOverlay />}
-        {state.stage === 'captured' && <ScreenCapturedOverlay />}
+        {state.stage === 'idle' && !sceneDebugMode && <ScreenIdleOverlay />}
+        {state.stage === 'captured' && !sceneDebugMode && <ScreenCapturedOverlay />}
+        <ConnectionStatus connected={connected} variant="screen" />
 
-        <ScreenKivicubeStage activeRoleId={selectedRole.id} countdown={state.countdown} showCountdown={state.stage === 'countdown'} visible={showKivicubeScene} />
+        <ScreenKivicubeStage
+          activeRoleId={selectedRole.id}
+          countdown={state.countdown}
+          renderElectronWebviews={electronArHost}
+          renderEmbeddedFrames={!electronArHost}
+          showCountdown={!sceneDebugMode && state.stage === 'countdown'}
+          visible={showKivicubeScene}
+        />
 
         {state.stage === 'error' && (
           <div className="screen-result error">
@@ -352,18 +380,28 @@ function ScreenApp() {
 function ScreenKivicubeStage({
   activeRoleId,
   countdown,
+  renderElectronWebviews,
+  renderEmbeddedFrames,
   showCountdown,
   visible,
 }: {
   activeRoleId: string
   countdown: number
+  renderElectronWebviews: boolean
+  renderEmbeddedFrames: boolean
   showCountdown: boolean
   visible: boolean
 }) {
   const frameRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
   const loadedSceneIds = useRef(new Set<string>())
+  const electronWarmupCount = useElectronWebviewWarmup(renderElectronWebviews)
+  const electronRoles = renderElectronWebviews
+    ? roles.filter((role, index) => index < electronWarmupCount || (visible && role.id === activeRoleId))
+    : []
 
   useEffect(() => {
+    if (!renderEmbeddedFrames) return
+
     const plugin = window.kivicubeIframePlugin
     if (!plugin) return
 
@@ -388,23 +426,35 @@ function ScreenKivicubeStage({
         trial: true,
       })
     })
-  }, [])
+  }, [renderEmbeddedFrames])
 
   return (
     <div className={visible ? 'screen-stage screen-stage-visible' : 'screen-stage'} aria-hidden={!visible}>
       <div className="screen-stage-shell">
-        {roles.map((role) => (
-          <iframe
-            allow="camera; microphone; gyroscope; accelerometer; magnetometer; fullscreen; clipboard-write"
-            allowFullScreen
-            className={visible && role.id === activeRoleId ? 'screen-stage-frame screen-stage-frame-active' : 'screen-stage-frame'}
-            key={role.id}
-            ref={(element) => {
-              frameRefs.current[role.id] = element
-            }}
-            title={`${role.name} Kivicube Body AR`}
-          />
-        ))}
+        {renderEmbeddedFrames &&
+          roles.map((role) => (
+            <iframe
+              allow="camera; microphone; gyroscope; accelerometer; magnetometer; fullscreen; clipboard-write"
+              allowFullScreen
+              className={visible && role.id === activeRoleId ? 'screen-stage-frame screen-stage-frame-active' : 'screen-stage-frame'}
+              key={role.id}
+              ref={(element) => {
+                frameRefs.current[role.id] = element
+              }}
+              title={`${role.name} Kivicube Body AR`}
+            />
+          ))}
+        {electronRoles.map((role) =>
+            createElement('webview', {
+              allow: 'camera; microphone; autoplay; fullscreen; gyroscope; accelerometer; magnetometer; xr-spatial-tracking',
+              allowpopups: 'true',
+              className: visible && role.id === activeRoleId ? 'screen-stage-frame screen-stage-frame-active' : 'screen-stage-frame',
+              key: role.id,
+              partition: `persist:kivicube-${role.id}`,
+              src: getKivicubeFaceSceneUrl(role.kivicubeSceneId),
+              useragent: electronMobileUserAgent,
+            }),
+          )}
         {showCountdown && (
           <div className="screen-countdown" aria-hidden="true">
             <div className="screen-countdown-ring" />
@@ -414,6 +464,22 @@ function ScreenKivicubeStage({
       </div>
     </div>
   )
+}
+
+function useElectronWebviewWarmup(enabled: boolean) {
+  const [count, setCount] = useState(() => (enabled ? 1 : 0))
+
+  useEffect(() => {
+    if (!enabled) return
+
+    const timer = window.setInterval(() => {
+      setCount((current) => (current >= roles.length ? current : current + 1))
+    }, 1200)
+
+    return () => window.clearInterval(timer)
+  }, [enabled])
+
+  return count
 }
 
 function ScreenCapturedOverlay() {
@@ -474,7 +540,7 @@ function ScreenIdleOverlay() {
 }
 
 function ControlApp() {
-  const { emit, state } = useRoomSocket('control')
+  const { connected, emit, state } = useRoomSocket('control')
   const selectedRole = getSelectedRole(state)
   const [controlPage, setControlPage] = useState<ControlPage>(getInitialControlPage)
   const [detailRoleId, setDetailRoleId] = useState(getInitialDetailRoleId)
@@ -501,6 +567,7 @@ function ControlApp() {
     <main className="control-stage">
       <section className="control-scale">
         <div className="control-canvas">
+          <ConnectionStatus connected={connected} variant="control" />
           {controlViewPage === 'home' ? (
             <ControlHome onEnter={() => setControlPage('select')} />
           ) : controlViewPage === 'select' ? (
@@ -553,11 +620,37 @@ function ControlApp() {
   )
 }
 
+function ConnectionStatus({ connected, variant }: { connected: boolean; variant: 'screen' | 'control' }) {
+  return (
+    <div className={`connection-status connection-status-${variant} ${connected ? 'connected' : 'disconnected'}`}>
+      <span className="connection-status-dot" />
+      <span>{connected ? '已连接控制服务' : '未连接控制服务，请确认同一 WiFi'}</span>
+    </div>
+  )
+}
+
+function getKivicubeFaceSceneUrl(sceneId: string) {
+  const params = new URLSearchParams({
+    hideLogo: 'true',
+    hideTitle: 'true',
+    hideDownload: 'true',
+    cameraPosition: 'front',
+    hideLoading: 'true',
+    hideScan: 'true',
+    hideBackground: 'true',
+    hideStart: 'true',
+    disableOpenUrl: 'true',
+    trial: 'true',
+  })
+
+  return `https://www.kivicube.com/face-scenes/${sceneId}?${params.toString()}`
+}
+
 function ControlHome({ onEnter }: { onEnter: () => void }) {
   return (
     <section className="control-home">
       <img className="control-home-bg" src={figmaImages.homeBg} alt="" draggable={false} />
-      <div className="control-glow" />
+      {/* <div className="control-glow" /> */}
       <img className="control-home-logo" src={figmaImages.logo} alt="" draggable={false} />
       <button className="control-enter" onClick={onEnter} type="button">
         <span>进入幻装</span>
