@@ -1,0 +1,16 @@
+{
+  "projectId": "prj_dQsDKJVitmRPnXgoO14OjI67loBi",
+  "orgId": "team_OAoOpdu0XoLnSC3nmPFl0B8r",
+  "projectName": "jingchu-control-iframe",
+  "settings": {
+    "createdAt": 1779120272511,
+    "framework": "vite",
+    "devCommand": null,
+    "installCommand": "pnpm install --frozen-lockfile",
+    "buildCommand": "pnpm --filter @jingchu/web build",
+    "outputDirectory": "apps/web/dist",
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}
