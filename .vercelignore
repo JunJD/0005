@@ -1,6 +1,8 @@
 node_modules
 dist
 apps/*/dist
+assets
+tmp-control*.png
 .DS_Store
 .env
 .env.local

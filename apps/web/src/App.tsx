@@ -61,6 +61,7 @@ type RoomState = {
 }
 
 type ControlPage = 'home' | 'select' | 'detail' | 'iframe' | 'photo' | 'result'
+type KivicubeLoadStatus = 'loading' | 'ready' | 'error'
 
 const figmaImages = {
   hero: '/figma/original/source-screen-04-763851a1b0-2305x4096.png',
@@ -197,6 +198,25 @@ const defaultState: RoomState = {
   updatedAt: Date.now(),
 }
 
+const preloadImageUrls = Array.from(new Set(Object.values(figmaImages)))
+
+function getKivicubeSceneOptions(role: Role): KivicubeSceneOptions {
+  return {
+    sceneId: role.kivicubeSceneId,
+    hideLogo: true,
+    hideTitle: true,
+    hideDownload: true,
+    cameraPosition: 'front',
+    hideLoading: true,
+    hideScan: true,
+    hideTakePhoto: false,
+    hideBackground: true,
+    hideStart: true,
+    disableOpenUrl: true,
+    trial: true,
+  }
+}
+
 function useRoomSocket(clientType: 'screen' | 'control') {
   const [connected, setConnected] = useState(false)
   const [state, setState] = useState<RoomState>(defaultState)
@@ -313,7 +333,35 @@ function useDesignRem(width: number, height: number) {
   }, [height, width])
 }
 
+function usePreloadImages() {
+  useEffect(() => {
+    const links = preloadImageUrls.map((href) => {
+      const link = document.createElement('link')
+      link.rel = 'preload'
+      link.as = 'image'
+      link.href = href
+      document.head.appendChild(link)
+      return link
+    })
+    const images = preloadImageUrls.map((src) => {
+      const image = new Image()
+      image.decoding = 'async'
+      image.src = src
+      void image.decode?.().catch(() => undefined)
+      return image
+    })
+
+    return () => {
+      links.forEach((link) => link.remove())
+      images.forEach((image) => {
+        image.src = ''
+      })
+    }
+  }, [])
+}
+
 function App() {
+  usePreloadImages()
   const route = window.location.pathname
 
   if (route.startsWith('/screen')) {
@@ -377,20 +425,7 @@ function ScreenKivicubeStage({
       if (loadedSceneIds.current.has(role.kivicubeSceneId)) return
 
       loadedSceneIds.current.add(role.kivicubeSceneId)
-      void plugin.openKivicubeScene(iframe, {
-        sceneId: role.kivicubeSceneId,
-        hideLogo: true,
-        hideTitle: true,
-        hideDownload: true,
-        cameraPosition: 'front',
-        hideLoading: true,
-        hideScan: true,
-        hideTakePhoto: false,
-        hideBackground: true,
-        hideStart: true,
-        disableOpenUrl: true,
-        trial: true,
-      })
+      void plugin.openKivicubeScene(iframe, getKivicubeSceneOptions(role))
     })
   }, [])
 
@@ -486,6 +521,7 @@ function ControlApp() {
   const detailRole = roles.find((role) => role.id === detailRoleId) ?? selectedRole
   useDesignRem(controlDesign.width, controlDesign.height)
   const controlViewPage = controlPage === 'photo' && state.stage === 'captured' && captureArmed ? 'result' : controlPage
+  const showIframe = controlViewPage === 'iframe'
 
   const selectRole = (roleId: string) => {
     setDetailRoleId(roleId)
@@ -528,9 +564,7 @@ function ControlApp() {
               onPrev={() => switchDetailRole(-1)}
               role={detailRole}
             />
-          ) : controlViewPage === 'iframe' ? (
-            <ControlIframe onBack={() => setControlPage('detail')} role={detailRole} />
-          ) : controlViewPage === 'photo' ? (
+          ) : controlViewPage === 'iframe' ? null : controlViewPage === 'photo' ? (
             <ControlPhoto
               countdown={state.countdown}
               onStart={() => {
@@ -553,6 +587,7 @@ function ControlApp() {
               photoUrl={state.photoUrl}
             />
           )}
+          <ControlKivicubeLayer activeRoleId={detailRole.id} onBack={() => setControlPage('detail')} visible={showIframe} />
         </div>
       </section>
     </main>
@@ -834,55 +869,52 @@ function ControlTimeline({ activeIndex, variant = 'default' }: { activeIndex: nu
   )
 }
 
-function ControlIframe({ onBack, role }: { onBack: () => void; role: Role }) {
-  const frameRef = useRef<HTMLIFrameElement | null>(null)
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+function ControlKivicubeLayer({ activeRoleId, onBack, visible }: { activeRoleId: string; onBack: () => void; visible: boolean }) {
+  const frameRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
+  const loadedSceneIds = useRef(new Set<string>())
+  const [statuses, setStatuses] = useState<Partial<Record<string, KivicubeLoadStatus>>>({})
+  const activeRole = roles.find((role) => role.id === activeRoleId) ?? roles[0]
+  const activeStatus = statuses[activeRole.id] ?? 'loading'
 
   useEffect(() => {
     let cancelled = false
 
-    const openScene = () => {
-      const plugin = window.kivicubeIframePlugin
-      const iframe = frameRef.current
-      if (!plugin || !iframe) return false
+    const setRoleStatus = (roleId: string, status: KivicubeLoadStatus) => {
+      if (cancelled) return
+      setStatuses((current) => ({ ...current, [roleId]: status }))
+    }
 
-      void plugin
-        .openKivicubeScene(
-          iframe,
-          {
-            sceneId: role.kivicubeSceneId,
-            hideLogo: true,
-            hideTitle: true,
-            hideDownload: true,
-            cameraPosition: 'front',
-            hideLoading: true,
-            hideScan: true,
-            hideTakePhoto: false,
-            hideBackground: true,
-            hideStart: true,
-            disableOpenUrl: true,
-            trial: true,
-          },
-          true,
-        )
-        .then(() => {
-          if (!cancelled) setStatus('ready')
-        })
-        .catch(() => {
-          if (!cancelled) setStatus('error')
-        })
+    const prewarmScenes = () => {
+      const plugin = window.kivicubeIframePlugin
+      if (!plugin) return false
+
+      roles.forEach((role, index) => {
+        window.setTimeout(() => {
+          if (cancelled) return
+
+          const iframe = frameRefs.current[role.id]
+          if (!iframe || loadedSceneIds.current.has(role.kivicubeSceneId)) return
+
+          loadedSceneIds.current.add(role.kivicubeSceneId)
+          setRoleStatus(role.id, 'loading')
+          void plugin
+            .openKivicubeScene(iframe, getKivicubeSceneOptions(role), true)
+            .then(() => setRoleStatus(role.id, 'ready'))
+            .catch(() => setRoleStatus(role.id, 'error'))
+        }, index * 500)
+      })
 
       return true
     }
 
-    if (openScene()) {
+    if (prewarmScenes()) {
       return () => {
         cancelled = true
       }
     }
 
     const timer = window.setInterval(() => {
-      if (openScene()) {
+      if (prewarmScenes()) {
         window.clearInterval(timer)
       }
     }, 250)
@@ -891,30 +923,34 @@ function ControlIframe({ onBack, role }: { onBack: () => void; role: Role }) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [role])
+  }, [])
 
   return (
-    <section className="control-screen iframe-screen">
+    <section aria-hidden={!visible} className={visible ? 'control-screen iframe-screen iframe-screen-visible' : 'control-screen iframe-screen'}>
       <div className="iframe-toolbar">
         <ControlBackButton ariaLabel="返回确认页" onClick={onBack} />
         <div className="iframe-title">
-          <strong>{role.name}</strong>
+          <strong>{activeRole.name}</strong>
           <span>AR 幻装体验</span>
         </div>
       </div>
 
       <div className="iframe-shell">
-        <iframe
-          allow="camera; microphone; gyroscope; accelerometer; magnetometer; fullscreen; clipboard-write"
-          allowFullScreen
-          className="kivicube-frame"
-          key={role.id}
-          ref={frameRef}
-          title={`${role.name} Kivicube Body AR`}
-        />
-        {status !== 'ready' && (
-          <div className={`iframe-status iframe-status-${status}`}>
-            <span>{status === 'error' ? 'AR 加载失败，请检查网络或 Kivicube 插件' : 'AR 加载中'}</span>
+        {roles.map((role) => (
+          <iframe
+            allow="camera; microphone; gyroscope; accelerometer; magnetometer; fullscreen; clipboard-write"
+            allowFullScreen
+            className={visible && role.id === activeRole.id ? 'kivicube-frame kivicube-frame-active' : 'kivicube-frame'}
+            key={role.id}
+            ref={(element) => {
+              frameRefs.current[role.id] = element
+            }}
+            title={`${role.name} Kivicube Body AR`}
+          />
+        ))}
+        {visible && activeStatus !== 'ready' && (
+          <div className={`iframe-status iframe-status-${activeStatus}`}>
+            <span>{activeStatus === 'error' ? 'AR 加载失败，请检查网络或 Kivicube 插件' : 'AR 加载中'}</span>
           </div>
         )}
       </div>
