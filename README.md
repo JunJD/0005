@@ -13,6 +13,11 @@ pnpm dev
 - 小屏端：`http://localhost:5173/control`
 - 服务端健康检查：`http://localhost:4000/health`
 
+手机投屏测试时，让手机和开发机连接同一 WiFi，在手机浏览器打开：
+
+- 手机大屏端：`http://<开发机IP>:5173/screen`
+- 控制端：`http://<开发机IP>:5173/control`
+
 ## Figma 资源
 
 当前 Figma 链接：

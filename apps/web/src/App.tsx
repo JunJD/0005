@@ -22,35 +22,6 @@ type Role = {
   kivicubeSceneId: string
 }
 
-type KivicubeSceneOptions = {
-  sceneId: string
-  hideLogo?: boolean
-  hideTitle?: boolean
-  hideDownload?: boolean
-  cameraPosition?: 'front' | 'back'
-  hideLoading?: boolean
-  hideScan?: boolean
-  hideTakePhoto?: boolean
-  hideBackground?: boolean
-  hideStart?: boolean
-  disableOpenUrl?: boolean
-  trial?: boolean
-}
-
-type KivicubeIframePlugin = {
-  openKivicubeScene: (
-    iframe: HTMLIFrameElement,
-    options: KivicubeSceneOptions,
-    autoOpen?: boolean,
-  ) => Promise<{ id: string; allow: string; src: string }>
-}
-
-declare global {
-  interface Window {
-    kivicubeIframePlugin?: KivicubeIframePlugin
-  }
-}
-
 type RoomState = {
   roomId: string
   stage: Stage
@@ -203,7 +174,7 @@ function useRoomSocket(clientType: 'screen' | 'control') {
   const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
-    const nextSocket = io(import.meta.env.VITE_SERVER_URL ?? 'http://localhost:4000', {
+    const nextSocket = io(getServerUrl(), {
       transports: ['websocket'],
     })
     socketRef.current = nextSocket
@@ -231,6 +202,30 @@ function useRoomSocket(clientType: 'screen' | 'control') {
 
 function getSelectedRole(state: RoomState) {
   return roles.find((role) => role.id === state.selectedRoleId) ?? roles[0]
+}
+
+function getKivicubeFaceSceneUrl(sceneId: string) {
+  const params = new URLSearchParams({
+    hideLogo: 'true',
+    hideTitle: 'true',
+    hideDownload: 'true',
+    cameraPosition: 'front',
+    hideLoading: 'true',
+    hideScan: 'true',
+    hideBackground: 'true',
+    hideStart: 'true',
+    disableOpenUrl: 'true',
+    trial: 'true',
+  })
+
+  return `https://www.kivicube.com/face-scenes/${sceneId}?${params.toString()}`
+}
+
+function getServerUrl() {
+  if (import.meta.env.VITE_SERVER_URL) return import.meta.env.VITE_SERVER_URL
+
+  const { hostname, protocol } = window.location
+  return `${protocol}//${hostname}:4000`
 }
 
 function getInitialControlPage(): ControlPage {
@@ -290,12 +285,12 @@ function getScreenStage(stage: string | null): Stage | null {
   return null
 }
 
-function useDesignRem(width: number, height: number) {
+function useDesignRem(width: number, height: number, scaleMode: 'contain' | 'width' = 'contain') {
   useEffect(() => {
     const root = document.documentElement
     const previousFontSize = root.style.fontSize
     const resize = () => {
-      const scale = Math.min(window.innerWidth / width, window.innerHeight / height)
+      const scale = scaleMode === 'width' ? window.innerWidth / width : Math.min(window.innerWidth / width, window.innerHeight / height)
       root.style.fontSize = `${scale}px`
     }
 
@@ -306,7 +301,7 @@ function useDesignRem(width: number, height: number) {
       window.removeEventListener('resize', resize)
       root.style.fontSize = previousFontSize
     }
-  }, [height, width])
+  }, [height, scaleMode, width])
 }
 
 function App() {
@@ -323,10 +318,10 @@ function ScreenApp() {
   const { state: socketState } = useRoomSocket('screen')
   const state = getScreenState(socketState)
   const selectedRole = getSelectedRole(state)
-  const showKivicubeScene = state.stage === 'countdown'
+  const showKivicubeScene = state.stage === 'preview' || state.stage === 'countdown'
   const showBackground = state.stage !== 'countdown'
   const screenBackground = state.stage === 'captured' ? figmaImages.ending : figmaImages.hero
-  useDesignRem(screenDesign.width, screenDesign.height)
+  useDesignRem(screenDesign.width, screenDesign.height, 'width')
 
   return (
     <main className="screen-shell">
@@ -360,36 +355,6 @@ function ScreenKivicubeStage({
   showCountdown: boolean
   visible: boolean
 }) {
-  const frameRefs = useRef<Record<string, HTMLIFrameElement | null>>({})
-  const loadedSceneIds = useRef(new Set<string>())
-
-  useEffect(() => {
-    const plugin = window.kivicubeIframePlugin
-    if (!plugin) return
-
-    roles.forEach((role) => {
-      const iframe = frameRefs.current[role.id]
-      if (!iframe) return
-      if (loadedSceneIds.current.has(role.kivicubeSceneId)) return
-
-      loadedSceneIds.current.add(role.kivicubeSceneId)
-      void plugin.openKivicubeScene(iframe, {
-        sceneId: role.kivicubeSceneId,
-        hideLogo: true,
-        hideTitle: true,
-        hideDownload: true,
-        cameraPosition: 'front',
-        hideLoading: true,
-        hideScan: true,
-        hideTakePhoto: false,
-        hideBackground: true,
-        hideStart: true,
-        disableOpenUrl: true,
-        trial: true,
-      })
-    })
-  }, [])
-
   return (
     <div className={visible ? 'screen-stage screen-stage-visible' : 'screen-stage'} aria-hidden={!visible}>
       <div className="screen-stage-shell">
@@ -399,9 +364,7 @@ function ScreenKivicubeStage({
             allowFullScreen
             className={visible && role.id === activeRoleId ? 'screen-stage-frame screen-stage-frame-active' : 'screen-stage-frame'}
             key={role.id}
-            ref={(element) => {
-              frameRefs.current[role.id] = element
-            }}
+            src={getKivicubeFaceSceneUrl(role.kivicubeSceneId)}
             title={`${role.name} Kivicube Body AR`}
           />
         ))}
@@ -557,7 +520,7 @@ function ControlHome({ onEnter }: { onEnter: () => void }) {
   return (
     <section className="control-home">
       <img className="control-home-bg" src={figmaImages.homeBg} alt="" draggable={false} />
-      <div className="control-glow" />
+      {/* <div className="control-glow" /> */}
       <img className="control-home-logo" src={figmaImages.logo} alt="" draggable={false} />
       <button className="control-enter" onClick={onEnter} type="button">
         <span>进入幻装</span>
