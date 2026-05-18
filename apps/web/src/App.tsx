@@ -60,7 +60,7 @@ type RoomState = {
   updatedAt: number
 }
 
-type ControlPage = 'home' | 'select' | 'detail' | 'photo' | 'result'
+type ControlPage = 'home' | 'select' | 'detail' | 'iframe' | 'photo' | 'result'
 
 const figmaImages = {
   hero: '/figma/original/source-screen-04-763851a1b0-2305x4096.png',
@@ -174,7 +174,7 @@ const idleArtifactItems = [
 
 const controlDesign = {
   width: 1668,
-  height: 2388,
+  height: 2502,
 }
 
 const screenDesign = {
@@ -235,8 +235,12 @@ function getSelectedRole(state: RoomState) {
 
 function getInitialControlPage(): ControlPage {
   const page = new URLSearchParams(window.location.search).get('page')
-  if (page === 'select' || page === 'detail' || page === 'photo' || page === 'result') {
+  if (page === 'select' || page === 'detail' || page === 'iframe' || page === 'photo' || page === 'result') {
     return page
+  }
+
+  if (page === 'ar') {
+    return 'iframe'
   }
 
   return page === 'end' || page === 'ending' || page === 'captured' ? 'result' : 'home'
@@ -312,11 +316,11 @@ function useDesignRem(width: number, height: number) {
 function App() {
   const route = window.location.pathname
 
-  if (route.startsWith('/control')) {
-    return <ControlApp />
+  if (route.startsWith('/screen')) {
+    return <ScreenApp />
   }
 
-  return <ScreenApp />
+  return <ControlApp />
 }
 
 function ScreenApp() {
@@ -516,14 +520,16 @@ function ControlApp() {
             <ControlDetail
               onBack={() => setControlPage('select')}
               onConfirm={() => {
-                emit('control:start-preview', { roomId: 'main' })
-                setControlPage('photo')
+                emit('control:select-role', { roomId: 'main', roleId: detailRole.id })
+                setControlPage('iframe')
                 setCaptureArmed(false)
               }}
               onNext={() => switchDetailRole(1)}
               onPrev={() => switchDetailRole(-1)}
               role={detailRole}
             />
+          ) : controlViewPage === 'iframe' ? (
+            <ControlIframe onBack={() => setControlPage('detail')} role={detailRole} />
           ) : controlViewPage === 'photo' ? (
             <ControlPhoto
               countdown={state.countdown}
@@ -557,7 +563,6 @@ function ControlHome({ onEnter }: { onEnter: () => void }) {
   return (
     <section className="control-home">
       <img className="control-home-bg" src={figmaImages.homeBg} alt="" draggable={false} />
-      <div className="control-glow" />
       <img className="control-home-logo" src={figmaImages.logo} alt="" draggable={false} />
       <button className="control-enter" onClick={onEnter} type="button">
         <span>进入幻装</span>
@@ -570,7 +575,6 @@ function ControlHome({ onEnter }: { onEnter: () => void }) {
 function ControlSelect({ onBack, onSelect }: { onBack: () => void; onSelect: (roleId: string) => void }) {
   return (
     <section className="control-screen">
-      <div className="control-glow" />
       <ControlBackButton ariaLabel="返回首页" onClick={onBack} />
       <img className="control-logo" src={figmaImages.logo} alt="" draggable={false} />
       <h1 className="control-title">选择你的荆楚守护者</h1>
@@ -827,6 +831,94 @@ function ControlTimeline({ activeIndex, variant = 'default' }: { activeIndex: nu
         </span>
       ))}
     </div>
+  )
+}
+
+function ControlIframe({ onBack, role }: { onBack: () => void; role: Role }) {
+  const frameRef = useRef<HTMLIFrameElement | null>(null)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+
+  useEffect(() => {
+    let cancelled = false
+
+    const openScene = () => {
+      const plugin = window.kivicubeIframePlugin
+      const iframe = frameRef.current
+      if (!plugin || !iframe) return false
+
+      void plugin
+        .openKivicubeScene(
+          iframe,
+          {
+            sceneId: role.kivicubeSceneId,
+            hideLogo: true,
+            hideTitle: true,
+            hideDownload: true,
+            cameraPosition: 'front',
+            hideLoading: true,
+            hideScan: true,
+            hideTakePhoto: false,
+            hideBackground: true,
+            hideStart: true,
+            disableOpenUrl: true,
+            trial: true,
+          },
+          true,
+        )
+        .then(() => {
+          if (!cancelled) setStatus('ready')
+        })
+        .catch(() => {
+          if (!cancelled) setStatus('error')
+        })
+
+      return true
+    }
+
+    if (openScene()) {
+      return () => {
+        cancelled = true
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      if (openScene()) {
+        window.clearInterval(timer)
+      }
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [role])
+
+  return (
+    <section className="control-screen iframe-screen">
+      <div className="iframe-toolbar">
+        <ControlBackButton ariaLabel="返回确认页" onClick={onBack} />
+        <div className="iframe-title">
+          <strong>{role.name}</strong>
+          <span>AR 幻装体验</span>
+        </div>
+      </div>
+
+      <div className="iframe-shell">
+        <iframe
+          allow="camera; microphone; gyroscope; accelerometer; magnetometer; fullscreen; clipboard-write"
+          allowFullScreen
+          className="kivicube-frame"
+          key={role.id}
+          ref={frameRef}
+          title={`${role.name} Kivicube Body AR`}
+        />
+        {status !== 'ready' && (
+          <div className={`iframe-status iframe-status-${status}`}>
+            <span>{status === 'error' ? 'AR 加载失败，请检查网络或 Kivicube 插件' : 'AR 加载中'}</span>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 
