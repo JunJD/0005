@@ -6,7 +6,7 @@
   "outputDirectory": "apps/web/dist",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|figma/|favicon\\.svg$).*)",
       "destination": "/index.html"
     }
   ],
