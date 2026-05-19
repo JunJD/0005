@@ -922,15 +922,13 @@
 }
 
 .detail-artifact-light {
-  left: 12rem;
-  top: 653rem;
+  left: -6rem;
+  top: 642rem;
   z-index: 2;
-  width: 692rem;
-  height: 170rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.72);
-  filter: blur(27rem);
-  mix-blend-mode: plus-lighter;
+  width: 728rem;
+  height: auto;
+  user-select: none;
+  pointer-events: none;
 }
 
 .detail-artifact-image {
